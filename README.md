@@ -27,8 +27,8 @@ win_msgbox = "1.1.0"
 
 ```rust
 use win_msgbox::{
-    error_msgbox, info_msgbox, notify_msgbox_standalone, quest_msgbox_yesno, wait_notifications,
-    warn_msgbox,
+    MsgBoxType, MsgBtnType, custom_msgbox, error_msgbox, info_msgbox, notify_msgbox_standalone,
+    quest_msgbox_yesno, wait_notifications, warn_msgbox,
 };
 
 fn main() {
@@ -41,6 +41,14 @@ fn main() {
     } else if result == 7 {
         error_msgbox("You clicked No", "Result", 0);
     }
+
+    custom_msgbox(
+        "Custom buttons and icon",
+        "Custom",
+        MsgBoxType::Warn,
+        MsgBtnType::OkCancel,
+        0,
+    );
 
     notify_msgbox_standalone("Task", "Operation completed", 5000);
 
@@ -58,6 +66,7 @@ fn main() {
 - `warn_msgbox(msg, title, timeout_ms) -> i32`
 - `quest_msgbox_yesno(msg, title, timeout_ms) -> i32`
 - `quest_msgbox_okcancel(msg, title, timeout_ms) -> i32`
+- `custom_msgbox(msg, title, msgbox_type, msgboxbtn_type, timeout_ms) -> i32`
 
 Return values follow Win32 `MessageBox` conventions:
 

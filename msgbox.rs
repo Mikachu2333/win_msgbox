@@ -21,8 +21,8 @@ use crate::{
 /// - `Ok`:       MB_OK (0x0000) — only the OK button
 /// - `OkCancel`: MB_OKCANCEL (0x0001) — OK and Cancel buttons
 /// - `YesNo`:    MB_YESNO (0x0004) — Yes and No buttons
-#[allow(dead_code)]
-enum MsgBtnType {
+#[derive(Clone, Copy, Debug)]
+pub enum MsgBtnType {
     /// Only the OK button (MB_OK)
     Ok,
     /// OK and Cancel buttons (MB_OKCANCEL)
@@ -37,7 +37,7 @@ impl MsgBtnType {
     /// # Returns
     ///
     /// A `UINT` bitmask representing the button combination style.
-    fn to_u32(&self) -> UINT {
+    fn to_u32(self) -> UINT {
         match self {
             MsgBtnType::Ok => 0x0000,
             MsgBtnType::OkCancel => 0x0001,
@@ -53,8 +53,8 @@ impl MsgBtnType {
 /// - `Info`:  MB_ICONINFORMATION (0x0040) — blue "i" information icon
 /// - `Quest`: MB_ICONQUESTION (0x0020) — blue "?" question icon
 /// - `Warn`:  MB_ICONWARNING (0x0030) — yellow "!" warning icon
-#[allow(dead_code)]
-enum MsgBoxType {
+#[derive(Clone, Copy, Debug)]
+pub enum MsgBoxType {
     /// Error icon — red X (MB_ICONERROR)
     Error,
     /// Information icon — blue "i" (MB_ICONINFORMATION)
@@ -71,7 +71,7 @@ impl MsgBoxType {
     /// # Returns
     ///
     /// A `UINT` bitmask representing the icon style.
-    fn to_u32(&self) -> UINT {
+    fn to_u32(self) -> UINT {
         match self {
             MsgBoxType::Error => 0x0010,
             MsgBoxType::Quest => 0x0020,
@@ -192,6 +192,37 @@ fn raw_msgbox(
     } else {
         result
     }
+}
+
+/// Displays a custom Windows message box.
+///
+/// This is the generic entry point that allows you to choose both icon style
+/// and button combination at runtime.
+///
+/// # Parameters
+///
+/// - `msg`: The message text to display.
+/// - `title`: The dialog title. Defaults to the selected message box type name
+///   when empty.
+/// - `msgbox_type`: The message box icon style.
+/// - `msgboxbtn_type`: The message box button combination.
+/// - `timeout_ms`: Auto-close timeout in milliseconds. Use `0` for no timeout.
+///
+/// # Returns
+///
+/// - Returns the Windows API button result code when the user closes the dialog
+///   by clicking a button, for example `1` for OK, `2` for Cancel, `6` for Yes,
+///   and `7` for No.
+/// - Returns `-1` when the dialog is closed automatically by the timeout
+///   mechanism.
+pub fn custom_msgbox(
+    msg: impl ToString,
+    title: impl ToString,
+    msgbox_type: MsgBoxType,
+    msgboxbtn_type: MsgBtnType,
+    timeout_ms: u64,
+) -> i32 {
+    raw_msgbox(msg, title, msgbox_type, msgboxbtn_type, timeout_ms)
 }
 
 /// Displays an information message box.
