@@ -1,4 +1,8 @@
 /// Windows message box and notification module.
+///
+/// This crate provides utility functions for displaying Windows message boxes
+/// and system notifications with support for auto-close timeout, multiple icon
+/// styles, and various button combinations.
 mod msgbox;
 mod popup_notify;
 mod tray_notify;

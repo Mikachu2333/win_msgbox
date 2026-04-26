@@ -21,27 +21,63 @@ use crate::{
     },
 };
 
-/// Global list of notification window threads
+/// Global list of notification window thread handles.
+///
+/// Stores join handles for all active notification window threads so they can
+/// be properly joined and cleaned up when `wait_notifications()` is called.
 static NOTIFY_THREADS: Mutex<Vec<JoinHandle<()>>> = Mutex::new(Vec::new());
 
-// Timer ID for auto-close
+/// Timer ID used for the auto-close countdown timer.
 const TIMER_ID_AUTOCLOSE: usize = 1;
 
-// Windows notification typical size at 96 DPI
+/// Default notification window width at 96 DPI (in pixels).
 const NOTIFY_WIDTH_96DPI: i32 = 364;
+
+/// Default notification window height at 96 DPI (in pixels).
 const NOTIFY_HEIGHT_96DPI: i32 = 109;
 
-/// Data passed to the notification window
+/// Per-window data stored in the window's user data (GWLP_USERDATA).
+///
+/// This structure is created during `WM_CREATE` and cleaned up during
+/// `WM_NCDESTROY`. It holds references to the edit control, font handle,
+/// and state needed for the auto-close countdown display.
 struct NotifyWindowData {
+    /// Handle to the child edit control displaying the message text.
     edit_hwnd: crate::HWND,
+    /// Handle to the created font object (to be deleted on cleanup).
     font: isize,
+    /// The original window title (before countdown suffix is appended).
     original_title: String,
+    /// Timestamp when the window was created (for countdown calculation).
     start_time: std::time::Instant,
+    /// Auto-close timeout duration in milliseconds.
     timeout_ms: u64,
+    /// Last displayed remaining seconds (to avoid redundant title updates).
     last_secs: u64,
 }
 
-/// Window procedure for the notification window
+/// Window procedure for the standalone notification window.
+///
+/// Handles the following messages:
+/// - `WM_CREATE`: Initializes the edit control, creates a DPI-scaled font,
+///   and allocates per-window data.
+/// - `WM_TIMER`: Updates the countdown display in the title bar and closes
+///   the window when the timeout expires.
+/// - `WM_CLOSE`: Destroys the window.
+/// - `WM_DESTROY`: Posts `WM_QUIT` to exit the message loop.
+/// - `WM_NCDESTROY`: Cleans up allocated resources (font, window data).
+///
+/// # Parameters
+///
+/// - `hwnd`: Handle to the notification window.
+/// - `msg`: The window message identifier.
+/// - `wparam`: Message-specific parameter.
+/// - `lparam`: Message-specific parameter.
+///
+/// # Returns
+///
+/// The result of message processing. Returns `0` for handled messages,
+/// or the result of `DefWindowProcW` for unhandled messages.
 unsafe extern "system" fn notify_wnd_proc(
     hwnd: crate::HWND,
     msg: UINT,
@@ -51,12 +87,10 @@ unsafe extern "system" fn notify_wnd_proc(
     unsafe {
         match msg {
             WM_CREATE => {
-                // Get DPI for proper scaling
                 let dpi = GetDpiForWindow(hwnd);
                 let dpi = if dpi == 0 { 96 } else { dpi };
                 let scale = dpi as f32 / 96.0;
 
-                // Create font scaled for DPI (Microsoft YaHei UI, 12pt at 96 DPI)
                 let font_height = -(12.0 * scale) as i32;
                 let font_name = to_wide("Microsoft YaHei UI");
                 let font = CreateFontW(
@@ -76,7 +110,6 @@ unsafe extern "system" fn notify_wnd_proc(
                     font_name.as_ptr(),
                 );
 
-                // Create the edit control for text display
                 let edit_class = to_wide("EDIT");
                 let edit_hwnd = CreateWindowExW(
                     0,
@@ -99,10 +132,8 @@ unsafe extern "system" fn notify_wnd_proc(
                 );
 
                 if edit_hwnd != 0 {
-                    // Set the font
                     SendMessageW(edit_hwnd, WM_SETFONT, font as WPARAM, 1);
 
-                    // Resize the edit control to fill the client area
                     let mut rect: RECT = std::mem::zeroed();
                     GetClientRect(hwnd, &mut rect);
                     MoveWindow(
@@ -115,7 +146,6 @@ unsafe extern "system" fn notify_wnd_proc(
                     );
                 }
 
-                // Store data in window user data
                 let data = Box::new(NotifyWindowData {
                     edit_hwnd,
                     font,
@@ -162,7 +192,6 @@ unsafe extern "system" fn notify_wnd_proc(
                 0
             }
             WM_NCDESTROY => {
-                // Clean up allocated data
                 let data_ptr = GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *mut NotifyWindowData;
                 if !data_ptr.is_null() {
                     let data = Box::from_raw(data_ptr);
@@ -181,23 +210,34 @@ unsafe extern "system" fn notify_wnd_proc(
 ///
 /// This function creates a custom popup window that appears above the taskbar,
 /// displaying the specified title and message. The window automatically closes
-/// after the specified timeout.
+/// after the specified timeout, with a live countdown shown in the title bar.
 ///
-/// ### Parameters
-/// - `title`: Window title text
-/// - `msg`: Notification message text (displayed in a scrollable, read-only text box)
-/// - `timeout_ms`: Time in milliseconds before the window automatically closes
+/// # Parameters
 ///
-/// ### Returns
-/// - `true` on success
-/// - `false` on failure
+/// - `title`: The window title text displayed in the title bar.
+/// - `msg`: The notification message text, displayed in a scrollable read-only
+///   text box with word wrap support.
+/// - `timeout_ms`: Time in milliseconds before the window automatically closes.
+///   Use `0` for no auto-close (window must be closed manually).
 ///
-/// ### Features
-/// - Window appears in the bottom-right corner, above the taskbar
-/// - Always on top but does not steal focus
-/// - Automatically scales with system DPI
-/// - Text box supports word wrap and vertical scrolling for long messages
-/// - Only has a close button (no minimize/maximize)
+/// # Returns
+///
+/// - `true` if the notification thread was successfully spawned.
+/// - `false` is never returned in the current implementation (always succeeds).
+///
+/// # Features
+///
+/// - Window appears in the bottom-right corner, above the taskbar.
+/// - Always on top (`WS_EX_TOPMOST`) but does not steal focus (`WS_EX_NOACTIVATE`).
+/// - Automatically scales with system DPI (per-monitor DPI aware).
+/// - Text box supports word wrap and vertical scrolling for long messages.
+/// - Only has a close button (no minimize/maximize).
+/// - Live countdown displayed in the title bar when timeout is active.
+///
+/// # Thread Safety
+///
+/// Each notification runs in its own thread. The thread handle is stored in
+/// a global `Mutex<Vec<JoinHandle>>` for later cleanup via `wait_notifications()`.
 #[allow(dead_code)]
 pub fn notify_msgbox_standalone(title: impl ToString, msg: impl ToString, timeout_ms: u64) -> bool {
     let title_str = title.to_string();
@@ -205,10 +245,8 @@ pub fn notify_msgbox_standalone(title: impl ToString, msg: impl ToString, timeou
 
     let handle = thread::spawn(move || {
         unsafe {
-            // Enable Per-Monitor DPI awareness for this thread
             SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 
-            // Generate a unique class name using timestamp
             let timestamp = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
@@ -216,7 +254,6 @@ pub fn notify_msgbox_standalone(title: impl ToString, msg: impl ToString, timeou
             let class_name_str = format!("NotifyWnd_{}", timestamp);
             let class_name = to_wide(&class_name_str);
 
-            // Register window class
             let wc = WNDCLASSEXW {
                 cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
                 style: 0,
@@ -236,7 +273,6 @@ pub fn notify_msgbox_standalone(title: impl ToString, msg: impl ToString, timeou
                 return;
             }
 
-            // Get work area (screen area excluding taskbar)
             let mut work_area: RECT = std::mem::zeroed();
             SystemParametersInfoW(
                 SPI_GETWORKAREA,
@@ -245,8 +281,6 @@ pub fn notify_msgbox_standalone(title: impl ToString, msg: impl ToString, timeou
                 0,
             );
 
-            // Create a temporary window to get DPI using system class
-            // to avoid triggering PostQuitMessage from our custom wndproc
             let static_class = to_wide("STATIC");
             let temp_hwnd = CreateWindowExW(
                 0,
@@ -271,16 +305,13 @@ pub fn notify_msgbox_standalone(title: impl ToString, msg: impl ToString, timeou
                 96
             };
 
-            // Scale dimensions for DPI
             let scale = dpi as f32 / 96.0;
             let width = (NOTIFY_WIDTH_96DPI as f32 * scale) as i32;
             let height = (NOTIFY_HEIGHT_96DPI as f32 * scale) as i32;
 
-            // Position: bottom-right, above taskbar
             let x = work_area.right - width;
             let y = work_area.bottom - height;
 
-            // Create the notification window
             let title_w = to_wide(&title_str);
             let hwnd = CreateWindowExW(
                 WS_EX_TOPMOST | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW,
@@ -302,7 +333,6 @@ pub fn notify_msgbox_standalone(title: impl ToString, msg: impl ToString, timeou
                 return;
             }
 
-            // Set the message text in the edit control
             let data_ptr = GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *mut NotifyWindowData;
             if !data_ptr.is_null() {
                 let data = &mut *data_ptr;
@@ -320,27 +350,22 @@ pub fn notify_msgbox_standalone(title: impl ToString, msg: impl ToString, timeou
                 }
             }
 
-            // Set auto-close timer
             if timeout_ms > 0 {
                 SetTimer(hwnd, TIMER_ID_AUTOCLOSE, 100, ptr::null());
             }
 
-            // Show window without activating
             ShowWindow(hwnd, SW_SHOWNA);
 
-            // Message loop
             let mut msg: MSG = std::mem::zeroed();
             while GetMessageW(&mut msg, 0, 0, 0) > 0 {
                 TranslateMessage(&msg);
                 DispatchMessageW(&msg);
             }
 
-            // Cleanup
             UnregisterClassW(class_name.as_ptr(), 0);
         }
     });
 
-    // Store the thread handle for later joining and cleanup finished threads
     if let Ok(mut threads) = NOTIFY_THREADS.lock() {
         threads.retain(|t| !t.is_finished());
         threads.push(handle);
@@ -349,10 +374,26 @@ pub fn notify_msgbox_standalone(title: impl ToString, msg: impl ToString, timeou
     true
 }
 
-/// Waits for all notification windows to close.
+/// Waits for all notification windows to close and cleans up their threads.
 ///
-/// Call this before the main thread exits to ensure all notification
-/// windows have been properly closed and cleaned up.
+/// This function blocks the calling thread until every notification window
+/// spawned by `notify_msgbox_standalone()` has been closed and its thread
+/// has terminated. Call this before the main thread exits to ensure proper
+/// cleanup of all notification resources.
+///
+/// # Behavior
+///
+/// - Drains all stored thread join handles.
+/// - Joins each thread, waiting for its message loop to exit.
+/// - After this function returns, no notification windows remain active.
+///
+/// # Example
+///
+/// ```ignore
+/// notify_msgbox_standalone("Update", "Download complete", 5000);
+/// // ... do other work ...
+/// wait_notifications(); // Ensure all notifications are cleaned up
+/// ```
 #[allow(dead_code)]
 pub fn wait_notifications() {
     if let Ok(mut threads) = NOTIFY_THREADS.lock() {
