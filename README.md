@@ -21,7 +21,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-win_msgbox = "1.1.0"
+win_msgbox = "1.2.0"
 ```
 
 ## Quick Start
