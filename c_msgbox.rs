@@ -75,8 +75,8 @@ fn wide_ptr_to_string(ptr: *const u16) -> String {
 /// __declspec(dllimport) int __stdcall custom_msgbox_w(
 ///     const wchar_t* msg,
 ///     const wchar_t* title,
-///     MsgBoxType msgbox_type,
-///     MsgBtnType msgboxbtn_type,
+///     unsigned int msgbox_type,
+///     unsigned int msgboxbtn_type,
 ///     unsigned long long timeout_ms
 /// );
 /// ```
@@ -88,7 +88,7 @@ fn wide_ptr_to_string(ptr: *const u16) -> String {
 ///
 /// extern "C" int __stdcall custom_msgbox_w(
 ///     const wchar_t* msg, const wchar_t* title,
-///     int msgbox_type, int msgboxbtn_type,
+///     unsigned int msgbox_type, unsigned int msgboxbtn_type,
 ///     unsigned long long timeout_ms
 /// );
 ///
@@ -108,10 +108,25 @@ fn wide_ptr_to_string(ptr: *const u16) -> String {
 pub extern "system" fn custom_msgbox_w(
     msg: *const u16,
     title: *const u16,
-    msgbox_type: MsgBoxType,
-    msgboxbtn_type: MsgBtnType,
+    msgbox_type: u32,
+    msgboxbtn_type: u32,
     timeout_ms: u64,
 ) -> i32 {
+    let msgbox_type = match msgbox_type {
+        0x0010 => MsgBoxType::Error,
+        0x0020 => MsgBoxType::Quest,
+        0x0030 => MsgBoxType::Warn,
+        0x0040 => MsgBoxType::Info,
+        _ => return 0, // Avoid UB from invalid C enum values mapped to Rust enum
+    };
+
+    let msgboxbtn_type = match msgboxbtn_type {
+        0x0000 => MsgBtnType::Ok,
+        0x0001 => MsgBtnType::OkCancel,
+        0x0004 => MsgBtnType::YesNo,
+        _ => return 0, // Avoid UB from invalid C enum values
+    };
+
     let msg = wide_ptr_to_string(msg);
     let title = wide_ptr_to_string(title);
     raw_msgbox(msg, title, msgbox_type, msgboxbtn_type, timeout_ms)
@@ -161,8 +176,8 @@ mod tests {
         let result = custom_msgbox_w(
             std::ptr::null(),
             std::ptr::null(),
-            MsgBoxType::Info,
-            MsgBtnType::Ok,
+            MsgBoxType::Info as u32,
+            MsgBtnType::Ok as u32,
             0,
         );
         // With empty title, raw_msgbox falls back to "Info" as title.

@@ -124,8 +124,8 @@ typedef enum {
 __declspec(dllimport) int __stdcall custom_msgbox_w(
     const wchar_t* msg,
     const wchar_t* title,
-    MsgBoxType msgbox_type,
-    MsgBtnType msgboxbtn_type,
+    unsigned int msgbox_type,
+    unsigned int msgboxbtn_type,
     unsigned long long timeout_ms
 );
 ```
@@ -137,7 +137,7 @@ __declspec(dllimport) int __stdcall custom_msgbox_w(
 
 extern "C" int __stdcall custom_msgbox_w(
     const wchar_t* msg, const wchar_t* title,
-    int msgbox_type, int msgboxbtn_type,
+    unsigned int msgbox_type, unsigned int msgboxbtn_type,
     unsigned long long timeout_ms
 );
 
