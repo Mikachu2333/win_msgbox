@@ -4,8 +4,9 @@ authors     = ["Mikachu2333"]
 license     = "MIT"
 version     = "1.1.1"
 edition     = "2024"
-description = "Windows message boxes and notification helpers for Rust"
+description = "Windows message boxes and notification helpers with timeout for Rust"
 readme      = "README.md"
+repository  = "https://github.com/Mikachu2333/win_msgbox"
 keywords    = ["windows", "messagebox", "notification", "win32"]
 categories  = ["os::windows-apis", "gui"]
 

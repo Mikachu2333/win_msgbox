@@ -1,6 +1,6 @@
 # win_msgbox
 
-A small Rust library for native Windows message boxes and notification popups.
+A small Rust library for multiple native Windows message boxes and notification popups with timeout.
 
 ## Features
 
