@@ -8,6 +8,7 @@ A small Rust library for multiple native Windows message boxes and notification 
 - Optional auto-close timeout for message boxes
 - Standalone popup notification window (bottom-right corner)
 - Balloon tip helper for existing tray icons
+- **C/C++ FFI**: Expose `custom_msgbox_w` for direct calling from C/C++ code
 
 ## Platform
 
@@ -89,6 +90,85 @@ Notes:
 
 - `notify_msgbox` requires an existing tray icon created with the same `icon_id`.
 - `NotifyIconType` enum is exported for future extension.
+
+## C/C++ FFI
+
+When built with `crate-type = ["cdylib"]` (already configured), the crate generates a
+`.dll` that can be called directly from C/C++ code.
+
+### Build the DLL
+
+```powershell
+cargo build --release
+```
+
+The output `win_msgbox_timeout.dll` (and optionally `.lib`) will be in `target/release/`.
+
+### C/C++ Declaration
+
+```c
+// Link with win_msgbox_timeout.lib
+typedef enum {
+    MsgBoxType_Error = 0x0010,
+    MsgBoxType_Info  = 0x0040,
+    MsgBoxType_Quest = 0x0020,
+    MsgBoxType_Warn  = 0x0030,
+} MsgBoxType;
+
+typedef enum {
+    MsgBtnType_Ok       = 0x0000,
+    MsgBtnType_OkCancel = 0x0001,
+    MsgBtnType_YesNo    = 0x0004,
+} MsgBtnType;
+
+__declspec(dllimport) int __stdcall custom_msgbox_w(
+    const wchar_t* msg,
+    const wchar_t* title,
+    MsgBoxType msgbox_type,
+    MsgBtnType msgboxbtn_type,
+    unsigned long long timeout_ms
+);
+```
+
+### C++ Example
+
+```cpp
+#include <iostream>
+
+extern "C" int custom_msgbox_w(
+    const wchar_t* msg, const wchar_t* title,
+    int msgbox_type, int msgboxbtn_type,
+    unsigned long long timeout_ms
+);
+
+int main() {
+    int result = custom_msgbox_w(
+        L"Hello from C++!",
+        L"FFI Demo",
+        0x0040, // Info
+        0x0000, // OK
+        5000    // 5-second timeout
+    );
+    std::cout << "Result: " << result << std::endl;
+    return 0;
+}
+```
+
+## Running Tests
+
+```powershell
+cargo test
+```
+
+The test suite covers:
+
+- Enum flag values (`MsgBtnType`, `MsgBoxType`)
+- Display formatting for default titles
+- Text normalization (line endings, trimming)
+- UTF-16 conversion (`to_wide`)
+- Timeout closer thread behavior
+- FFI null pointer safety
+- Notification spawning and cleanup
 
 ## Publish to crates.io
 

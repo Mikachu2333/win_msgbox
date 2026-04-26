@@ -402,3 +402,37 @@ pub fn wait_notifications() {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Tests that `notify_msgbox_standalone` returns `true` (success).
+    ///
+    /// This test spawns a notification with a very short timeout and waits
+    /// for it to complete, verifying the function returns successfully.
+    #[test]
+    fn notify_msgbox_standalone_returns_true() {
+        let result = notify_msgbox_standalone("Test Title", "Test Message", 100);
+        assert!(result);
+        wait_notifications();
+    }
+
+    /// Tests that `wait_notifications` does not block indefinitely when
+    /// there are no active notifications.
+    #[test]
+    fn wait_notifications_empty() {
+        // Should return immediately with no active threads.
+        wait_notifications();
+    }
+
+    /// Tests that multiple notifications can be spawned and waited on.
+    #[test]
+    fn multiple_notifications() {
+        let r1 = notify_msgbox_standalone("A", "Message A", 50);
+        let r2 = notify_msgbox_standalone("B", "Message B", 50);
+        assert!(r1);
+        assert!(r2);
+        wait_notifications();
+    }
+}

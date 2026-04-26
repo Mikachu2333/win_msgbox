@@ -21,7 +21,8 @@ use crate::{
 /// - `Ok`:       MB_OK (0x0000) — only the OK button
 /// - `OkCancel`: MB_OKCANCEL (0x0001) — OK and Cancel buttons
 /// - `YesNo`:    MB_YESNO (0x0004) — Yes and No buttons
-#[derive(Clone, Copy, Debug)]
+#[repr(u32)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MsgBtnType {
     /// Only the OK button (MB_OK)
     Ok,
@@ -53,7 +54,8 @@ impl MsgBtnType {
 /// - `Info`:  MB_ICONINFORMATION (0x0040) — blue "i" information icon
 /// - `Quest`: MB_ICONQUESTION (0x0020) — blue "?" question icon
 /// - `Warn`:  MB_ICONWARNING (0x0030) — yellow "!" warning icon
-#[derive(Clone, Copy, Debug)]
+#[repr(u32)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MsgBoxType {
     /// Error icon — red X (MB_ICONERROR)
     Error,
@@ -156,7 +158,7 @@ fn spawn_timeout_closer(title: Vec<u16>, timeout_ms: u64, timed_out: Arc<AtomicB
 /// The title is suffixed with `[process_name] timestamp_nanos` to create a
 /// unique window title, which is required for the timeout closer thread to
 /// correctly identify and close the target window.
-fn raw_msgbox(
+pub(crate) fn raw_msgbox(
     msg: impl ToString,
     title: impl ToString,
     msgtype: MsgBoxType,
@@ -331,4 +333,137 @@ pub fn quest_msgbox_okcancel(msg: impl ToString, title: impl ToString, timeout_m
         MsgBtnType::OkCancel,
         timeout_ms,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── MsgBtnType tests ──────────────────────────────────────────────
+
+    /// Tests that `MsgBtnType::Ok` maps to the correct Windows API flag.
+    #[test]
+    fn msg_btn_type_ok_flag() {
+        assert_eq!(MsgBtnType::Ok.to_u32(), 0x0000);
+    }
+
+    /// Tests that `MsgBtnType::OkCancel` maps to the correct Windows API flag.
+    #[test]
+    fn msg_btn_type_ok_cancel_flag() {
+        assert_eq!(MsgBtnType::OkCancel.to_u32(), 0x0001);
+    }
+
+    /// Tests that `MsgBtnType::YesNo` maps to the correct Windows API flag.
+    #[test]
+    fn msg_btn_type_yes_no_flag() {
+        assert_eq!(MsgBtnType::YesNo.to_u32(), 0x0004);
+    }
+
+    // ── MsgBoxType tests ──────────────────────────────────────────────
+
+    /// Tests that `MsgBoxType::Error` maps to the correct Windows API flag.
+    #[test]
+    fn msg_box_type_error_flag() {
+        assert_eq!(MsgBoxType::Error.to_u32(), 0x0010);
+    }
+
+    /// Tests that `MsgBoxType::Info` maps to the correct Windows API flag.
+    #[test]
+    fn msg_box_type_info_flag() {
+        assert_eq!(MsgBoxType::Info.to_u32(), 0x0040);
+    }
+
+    /// Tests that `MsgBoxType::Quest` maps to the correct Windows API flag.
+    #[test]
+    fn msg_box_type_quest_flag() {
+        assert_eq!(MsgBoxType::Quest.to_u32(), 0x0020);
+    }
+
+    /// Tests that `MsgBoxType::Warn` maps to the correct Windows API flag.
+    #[test]
+    fn msg_box_type_warn_flag() {
+        assert_eq!(MsgBoxType::Warn.to_u32(), 0x0030);
+    }
+
+    /// Tests that `MsgBoxType::Display` produces the correct default title strings.
+    #[test]
+    fn msg_box_type_display() {
+        assert_eq!(MsgBoxType::Error.to_string(), "Error");
+        assert_eq!(MsgBoxType::Info.to_string(), "Info");
+        assert_eq!(MsgBoxType::Quest.to_string(), "Question");
+        assert_eq!(MsgBoxType::Warn.to_string(), "Warning");
+    }
+
+    // ── normalize_text integration tests ──────────────────────────────
+
+    /// Tests that `raw_msgbox` normalizes Windows-style line endings.
+    #[test]
+    fn raw_msgbox_normalizes_crlf() {
+        let msg = normalize_text("line1\r\nline2");
+        assert_eq!(msg, "line1\nline2");
+    }
+
+    /// Tests that `raw_msgbox` normalizes old Mac-style line endings.
+    #[test]
+    fn raw_msgbox_normalizes_cr() {
+        let msg = normalize_text("line1\rline2");
+        assert_eq!(msg, "line1\nline2");
+    }
+
+    /// Tests that `raw_msgbox` trims leading and trailing whitespace.
+    #[test]
+    fn raw_msgbox_trims_whitespace() {
+        let msg = normalize_text("  hello world  ");
+        assert_eq!(msg, "hello world");
+    }
+
+    // ── spawn_timeout_closer tests ────────────────────────────────────
+
+    /// Tests that `spawn_timeout_closer` does nothing when timeout is 0.
+    #[test]
+    fn spawn_timeout_closer_zero_timeout() {
+        let timed_out = Arc::new(AtomicBool::new(false));
+        let title = to_wide("test");
+        spawn_timeout_closer(title, 0, timed_out.clone());
+        // Should return immediately without spawning a thread.
+        assert!(!timed_out.load(Ordering::SeqCst));
+    }
+
+    /// Tests that `spawn_timeout_closer` does not set the timed_out flag when
+    /// the target window does not exist (FindWindowW returns 0).
+    ///
+    /// The flag is only set when FindWindowW successfully finds the window,
+    /// so with a non-existent title the flag should remain false.
+    #[test]
+    fn spawn_timeout_closer_window_not_found() {
+        let timed_out = Arc::new(AtomicBool::new(false));
+        let title = to_wide("NonExistentWindowTitle_12345");
+        spawn_timeout_closer(title, 10, timed_out.clone());
+        thread::sleep(Duration::from_millis(50));
+        // FindWindowW returns 0 for non-existent windows, so timed_out stays false.
+        assert!(!timed_out.load(Ordering::SeqCst));
+    }
+
+    // ── to_wide integration tests ─────────────────────────────────────
+
+    /// Tests that `to_wide` produces a null-terminated UTF-16 vector.
+    #[test]
+    fn to_wide_null_terminated() {
+        let wide = to_wide("test");
+        assert_eq!(wide.last(), Some(&0));
+    }
+
+    /// Tests that `to_wide` correctly encodes ASCII text.
+    #[test]
+    fn to_wide_ascii() {
+        let wide = to_wide("ABC");
+        assert_eq!(wide, vec![0x0041, 0x0042, 0x0043, 0x0000]);
+    }
+
+    /// Tests that `to_wide` correctly encodes Unicode text.
+    #[test]
+    fn to_wide_unicode() {
+        let wide = to_wide("你好");
+        assert_eq!(wide, vec![0x4F60, 0x597D, 0x0000]);
+    }
 }

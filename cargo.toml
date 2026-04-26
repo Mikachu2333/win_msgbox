@@ -2,7 +2,7 @@
 name        = "win_msgbox_timeout"
 authors     = ["Mikachu2333"]
 license     = "MIT"
-version     = "1.1.1"
+version     = "1.2.0"
 edition     = "2024"
 description = "Windows message boxes and notification helpers with timeout for Rust"
 readme      = "README.md"
@@ -11,5 +11,12 @@ keywords    = ["windows", "messagebox", "notification", "win32"]
 categories  = ["os::windows-apis", "gui"]
 
 [lib]
-name = "win_msgbox_timeout"
-path = "lib.rs"
+name       = "win_msgbox_timeout"
+path       = "lib.rs"
+crate-type = ["lib", "cdylib"]
+
+[profile.release]
+lto           = true
+codegen-units = 1
+opt-level     = "z"
+strip         = true

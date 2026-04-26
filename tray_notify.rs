@@ -82,3 +82,28 @@ pub fn notify_msgbox(hwnd: crate::HWND, msg: impl ToString, icon_id: u32) -> i32
 
     unsafe { Shell_NotifyIconW(NIM_MODIFY, &nid) }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Tests that `notify_msgbox` returns `0` when called with an invalid
+    /// window handle (no tray icon exists).
+    ///
+    /// This verifies that the function handles the failure case gracefully
+    /// without crashing.
+    #[test]
+    fn notify_msgbox_invalid_hwnd() {
+        // Using an invalid HWND should fail gracefully (return 0).
+        let result = notify_msgbox(0xDEAD, "Test message", 999);
+        assert_eq!(result, 0);
+    }
+
+    /// Tests that `NotifyIconType` variants can be constructed.
+    #[test]
+    fn notify_icon_type_variants() {
+        let _info = NotifyIconType::Info;
+        let _warn = NotifyIconType::Warning;
+        let _err = NotifyIconType::Error;
+    }
+}
