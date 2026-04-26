@@ -14,7 +14,7 @@ use crate::{
         GetWindowLongPtrW, KillTimer, LPARAM, MSG, MoveWindow, OUT_DEFAULT_PRECIS, PostQuitMessage,
         RECT, RegisterClassExW, SPI_GETWORKAREA, SW_SHOWNA, SendMessageW,
         SetThreadDpiAwarenessContext, SetTimer, SetWindowLongPtrW, SetWindowTextW, ShowWindow,
-        SystemParametersInfoW, TranslateMessage, UINT, UnregisterClassW, VARIABLE_PITCH, WM_CLOSE,
+        SystemParametersInfoW, TranslateMessage, UnregisterClassW, VARIABLE_PITCH, WM_CLOSE,
         WM_CREATE, WM_DESTROY, WM_NCDESTROY, WM_SETFONT, WM_TIMER, WNDCLASSEXW, WPARAM, WS_CAPTION,
         WS_CHILD, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_POPUP, WS_SYSMENU,
         WS_VISIBLE, WS_VSCROLL,
@@ -80,7 +80,7 @@ struct NotifyWindowData {
 /// or the result of `DefWindowProcW` for unhandled messages.
 unsafe extern "system" fn notify_wnd_proc(
     hwnd: crate::HWND,
-    msg: UINT,
+    msg: u32,
     wparam: WPARAM,
     lparam: LPARAM,
 ) -> isize {

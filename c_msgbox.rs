@@ -86,7 +86,7 @@ fn wide_ptr_to_string(ptr: *const u16) -> String {
 /// ```cpp
 /// #include <iostream>
 ///
-/// extern "C" int custom_msgbox_w(
+/// extern "C" int __stdcall custom_msgbox_w(
 ///     const wchar_t* msg, const wchar_t* title,
 ///     int msgbox_type, int msgboxbtn_type,
 ///     unsigned long long timeout_ms
@@ -105,7 +105,7 @@ fn wide_ptr_to_string(ptr: *const u16) -> String {
 /// }
 /// ```
 #[unsafe(no_mangle)]
-pub extern "C" fn custom_msgbox_w(
+pub extern "system" fn custom_msgbox_w(
     msg: *const u16,
     title: *const u16,
     msgbox_type: MsgBoxType,

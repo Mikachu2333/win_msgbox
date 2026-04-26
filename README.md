@@ -1,4 +1,4 @@
-# win_msgbox
+# win_msgbox_timeout
 
 A small Rust library for multiple native Windows message boxes and notification popups with timeout.
 
@@ -21,13 +21,13 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-win_msgbox = "1.2.0"
+win_msgbox_timeout = "1.2.0"
 ```
 
 ## Quick Start
 
 ```rust
-use win_msgbox::{
+use win_msgbox_timeout::{
     MsgBoxType, MsgBtnType, custom_msgbox, error_msgbox, info_msgbox, notify_msgbox_standalone,
     quest_msgbox_yesno, wait_notifications, warn_msgbox,
 };
@@ -44,8 +44,8 @@ fn main() {
     }
 
     custom_msgbox(
-        "Custom buttons and icon",
-        "Custom",
+        "Custom msg (Msg types, btn types and custom timeout are also available)",
+        "Custom title",
         MsgBoxType::Warn,
         MsgBtnType::OkCancel,
         0,
@@ -135,7 +135,7 @@ __declspec(dllimport) int __stdcall custom_msgbox_w(
 ```cpp
 #include <iostream>
 
-extern "C" int custom_msgbox_w(
+extern "C" int __stdcall custom_msgbox_w(
     const wchar_t* msg, const wchar_t* title,
     int msgbox_type, int msgboxbtn_type,
     unsigned long long timeout_ms

@@ -12,10 +12,6 @@ pub type HWND = isize;
 #[allow(clippy::upper_case_acronyms)]
 pub type LPCWSTR = *const u16;
 
-/// Unsigned 32-bit integer, used for flags and message identifiers (`UINT`).
-#[allow(clippy::upper_case_acronyms)]
-pub type UINT = u32;
-
 /// 16-bit unsigned integer (`WORD`).
 #[allow(clippy::upper_case_acronyms)]
 pub type WORD = u16;
@@ -34,13 +30,13 @@ pub type BOOL = i32;
 
 /// Makes the message box system-modal (MB_SYSTEMMODAL).
 /// The dialog is displayed on top of all windows and requires user response.
-pub const MB_SYSTEMMODAL: UINT = 0x1000;
+pub const MB_SYSTEMMODAL: u32 = 0x1000;
 
 /// Brings the message box to the foreground (MB_SETFOREGROUND).
-pub const MB_SETFOREGROUND: UINT = 0x10000;
+pub const MB_SETFOREGROUND: u32 = 0x10000;
 
 /// Window message: close the window (WM_CLOSE).
-pub const WM_CLOSE: UINT = 0x0010;
+pub const WM_CLOSE: u32 = 0x0010;
 
 /// Shell_NotifyIconW message: modify an existing tray icon (NIM_MODIFY).
 pub const NIM_MODIFY: u32 = 0x00000001;
@@ -209,11 +205,11 @@ pub struct NOTIFYICONDATAW {
     /// Handle to the window that receives notification messages.
     pub hWnd: HWND,
     /// Application-defined identifier for the icon.
-    pub uID: UINT,
+    pub uID: u32,
     /// Flags indicating which fields are valid (NIF_*).
-    pub uFlags: UINT,
+    pub uFlags: u32,
     /// Application-defined callback message for the window.
-    pub uCallbackMessage: UINT,
+    pub uCallbackMessage: u32,
     /// Handle to the icon.
     pub hIcon: isize,
     /// Tooltip text (max 128 characters).
@@ -225,7 +221,7 @@ pub struct NOTIFYICONDATAW {
     /// Balloon notification text (max 256 characters).
     pub szInfo: [u16; 256],
     /// Timeout or version information.
-    pub uTimeoutOrVersion: UINT,
+    pub uTimeoutOrVersion: u32,
     /// Balloon notification title (max 64 characters).
     pub szInfoTitle: [u16; 64],
     /// Icon flags for the balloon notification (NIIF_*).
@@ -256,7 +252,7 @@ unsafe extern "system" {
         hWnd: HWND,
         lpText: LPCWSTR,
         lpCaption: LPCWSTR,
-        uType: UINT,
+        uType: u32,
         wLanguageId: WORD,
     ) -> i32;
 
@@ -284,7 +280,7 @@ unsafe extern "system" {
     /// # Returns
     ///
     /// Non-zero if the message was posted; zero on failure.
-    pub fn PostMessageW(hWnd: HWND, Msg: UINT, wParam: WPARAM, lParam: LPARAM) -> BOOL;
+    pub fn PostMessageW(hWnd: HWND, Msg: u32, wParam: WPARAM, lParam: LPARAM) -> BOOL;
 
     /// Creates an overlapped, pop-up, or child window (wide character version).
     ///

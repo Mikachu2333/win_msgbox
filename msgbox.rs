@@ -11,7 +11,7 @@ use std::{
 use crate::{
     util::{PROCESS_NAME, normalize_text, to_wide},
     win32::{
-        FindWindowW, MB_SETFOREGROUND, MB_SYSTEMMODAL, MessageBoxExW, PostMessageW, UINT, WM_CLOSE,
+        FindWindowW, MB_SETFOREGROUND, MB_SYSTEMMODAL, MessageBoxExW, PostMessageW, WM_CLOSE,
     },
 };
 
@@ -25,26 +25,11 @@ use crate::{
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MsgBtnType {
     /// Only the OK button (MB_OK)
-    Ok,
+    Ok = 0x0000,
     /// OK and Cancel buttons (MB_OKCANCEL)
-    OkCancel,
+    OkCancel = 0x0001,
     /// Yes and No buttons (MB_YESNO)
-    YesNo,
-}
-
-impl MsgBtnType {
-    /// Converts the button type to its corresponding Windows API flag value.
-    ///
-    /// # Returns
-    ///
-    /// A `UINT` bitmask representing the button combination style.
-    fn to_u32(self) -> UINT {
-        match self {
-            MsgBtnType::Ok => 0x0000,
-            MsgBtnType::OkCancel => 0x0001,
-            MsgBtnType::YesNo => 0x0004,
-        }
-    }
+    YesNo = 0x0004,
 }
 
 /// Icon styles for Windows message boxes.
@@ -58,29 +43,13 @@ impl MsgBtnType {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MsgBoxType {
     /// Error icon — red X (MB_ICONERROR)
-    Error,
-    /// Information icon — blue "i" (MB_ICONINFORMATION)
-    Info,
+    Error = 0x0010,
     /// Question icon — blue "?" (MB_ICONQUESTION)
-    Quest,
+    Quest = 0x0020,
     /// Warning icon — yellow "!" (MB_ICONWARNING)
-    Warn,
-}
-
-impl MsgBoxType {
-    /// Converts the message box type to its corresponding Windows API flag value.
-    ///
-    /// # Returns
-    ///
-    /// A `UINT` bitmask representing the icon style.
-    fn to_u32(self) -> UINT {
-        match self {
-            MsgBoxType::Error => 0x0010,
-            MsgBoxType::Quest => 0x0020,
-            MsgBoxType::Warn => 0x0030,
-            MsgBoxType::Info => 0x0040,
-        }
-    }
+    Warn = 0x0030,
+    /// Information icon — blue "i" (MB_ICONINFORMATION)
+    Info = 0x0040,
 }
 
 impl std::fmt::Display for MsgBoxType {
@@ -186,7 +155,7 @@ pub(crate) fn raw_msgbox(
     let timed_out = Arc::new(AtomicBool::new(false));
     spawn_timeout_closer(title_w.clone(), timeout_ms, timed_out.clone());
 
-    let flags = btntype.to_u32() | msgtype.to_u32() | MB_SETFOREGROUND | MB_SYSTEMMODAL;
+    let flags = btntype as u32 | msgtype as u32 | MB_SETFOREGROUND | MB_SYSTEMMODAL;
     let result = unsafe { MessageBoxExW(0, text_w.as_ptr(), title_w.as_ptr(), flags, 0) };
 
     if timed_out.load(Ordering::SeqCst) {
@@ -340,50 +309,6 @@ mod tests {
     use super::*;
 
     // ── MsgBtnType tests ──────────────────────────────────────────────
-
-    /// Tests that `MsgBtnType::Ok` maps to the correct Windows API flag.
-    #[test]
-    fn msg_btn_type_ok_flag() {
-        assert_eq!(MsgBtnType::Ok.to_u32(), 0x0000);
-    }
-
-    /// Tests that `MsgBtnType::OkCancel` maps to the correct Windows API flag.
-    #[test]
-    fn msg_btn_type_ok_cancel_flag() {
-        assert_eq!(MsgBtnType::OkCancel.to_u32(), 0x0001);
-    }
-
-    /// Tests that `MsgBtnType::YesNo` maps to the correct Windows API flag.
-    #[test]
-    fn msg_btn_type_yes_no_flag() {
-        assert_eq!(MsgBtnType::YesNo.to_u32(), 0x0004);
-    }
-
-    // ── MsgBoxType tests ──────────────────────────────────────────────
-
-    /// Tests that `MsgBoxType::Error` maps to the correct Windows API flag.
-    #[test]
-    fn msg_box_type_error_flag() {
-        assert_eq!(MsgBoxType::Error.to_u32(), 0x0010);
-    }
-
-    /// Tests that `MsgBoxType::Info` maps to the correct Windows API flag.
-    #[test]
-    fn msg_box_type_info_flag() {
-        assert_eq!(MsgBoxType::Info.to_u32(), 0x0040);
-    }
-
-    /// Tests that `MsgBoxType::Quest` maps to the correct Windows API flag.
-    #[test]
-    fn msg_box_type_quest_flag() {
-        assert_eq!(MsgBoxType::Quest.to_u32(), 0x0020);
-    }
-
-    /// Tests that `MsgBoxType::Warn` maps to the correct Windows API flag.
-    #[test]
-    fn msg_box_type_warn_flag() {
-        assert_eq!(MsgBoxType::Warn.to_u32(), 0x0030);
-    }
 
     /// Tests that `MsgBoxType::Display` produces the correct default title strings.
     #[test]
